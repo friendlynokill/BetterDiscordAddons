@@ -1020,47 +1020,47 @@ module.exports = (_ => {
 					}
 				});
 			}
-		microsoftTranslate (data, callback) {
-			BDFDB.LibraryRequires.request("https://api.cognitive.microsofttranslator.com/translate", {
-				method: "post",
-				headers: {
-					"Content-Type": "application/json",
-					"Ocp-Apim-Subscription-Key": authKeys.microsoft && authKeys.microsoft.key || "1ea861033a56423f860fd6f5ff33e308"
-				},
-				body: JSON.stringify([{"Text": data.text}]),
-				form: Object.assign({
-					"api-version": "3.0",
-					"to": data.output.id
-				}, data.input.auto ? {} : {"from": data.input.id})
-			}, (error, response, body) => {
-				if (!error && body && response.statusCode == 200) {
-					try {
-						body = JSON.parse(body)[0];
-						if (!data.specialCase && body.detectedLanguage && body.detectedLanguage.language && languages[body.detectedLanguage.language.toLowerCase()]) {
-							data.input.name = languages[body.detectedLanguage.language.toLowerCase()].name;
-							data.input.ownlang = languages[body.detectedLanguage.language.toLowerCase()].ownlang;
+			microsoftTranslate (data, callback) {
+				BDFDB.LibraryRequires.request("https://api.cognitive.microsofttranslator.com/translate", {
+					method: "post",
+					headers: {
+						"Content-Type": "application/json",
+						"Ocp-Apim-Subscription-Key": authKeys.microsoft && authKeys.microsoft.key || "1ea861033a56423f860fd6f5ff33e308"
+					},
+					body: JSON.stringify([{"Text": data.text}]),
+					form: Object.assign({
+						"api-version": "3.0",
+						"to": data.output.id
+					}, data.input.auto ? {} : {"from": data.input.id})
+				}, (error, response, body) => {
+					if (!error && body && response.statusCode == 200) {
+						try {
+							body = JSON.parse(body)[0];
+							if (!data.specialCase && body.detectedLanguage && body.detectedLanguage.language && languages[body.detectedLanguage.language.toLowerCase()]) {
+								data.input.name = languages[body.detectedLanguage.language.toLowerCase()].name;
+								data.input.ownlang = languages[body.detectedLanguage.language.toLowerCase()].ownlang;
+							}
+							callback(body.translations.map(n => n && n.text).filter(n => n).join(""));
 						}
-						callback(body.translations.map(n => n && n.text).filter(n => n).join(""));
+						catch (err) {callback("");}
 					}
-					catch (err) {callback("");}
-				}
-				else {
-					if (response.statusCode == 403 || response.statusCode == 429) BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_dailylimit}`, {
-						type: "danger",
-						position: "center"
-					});
-					else if (response.statusCode == 401) BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_keyoutdated}`, {
-						type: "danger",
-						position: "center"
-					});
-					else BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_serverdown}`, {
-						type: "danger",
-						position: "center"
-					});
-					callback("");
-				}
-			});
-		}
+					else {
+						if (response.statusCode == 403 || response.statusCode == 429) BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_dailylimit}`, {
+							type: "danger",
+							position: "center"
+						});
+						else if (response.statusCode == 401) BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_keyoutdated}`, {
+							type: "danger",
+							position: "center"
+						});
+						else BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_serverdown}`, {
+							type: "danger",
+							position: "center"
+						});
+						callback("");
+					}
+				});
+			}
 			
 			openAiTranslate(data, callback) {
 			    const requestBody = {
