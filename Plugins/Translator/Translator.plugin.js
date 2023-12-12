@@ -311,10 +311,7 @@ module.exports = (_ => {
 				name: "OpenAI",
 				auto: true,
 				funcName: "openaiTranslate",
-				languages: ["af","am","ar","az","ba","bg","bn","bs","ca","cs","cy","da","de","el","en","es","et","eu","fa","fi","fil","fr","fr-CA","ga","gl","gu","ha","he","hi","hr","ht","hu","hy","id","ig","is","it","ja","ka","kk","km","kn","ko","ku","ky","lo","lt","lv","mg","mi","mk","ml","mr","ms","mt","my","ne","nl","or","pa","pl","ps","pt","pt-PT","ro","ru","rw","sd","si","sk","sl","sm","sn","so","sq","st","sv","sw","ta","te","th","tk","tr","tt","ug","uk","ur","uz","vi","xh","yo","zh-CN","zh-TW","zu"],
-				parser: {
-					"zh-CN": "zh-Hans",
-					"zh-TW": "zh-Hant"
+				languages: googleLanguages
 				},
 				key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 			},
