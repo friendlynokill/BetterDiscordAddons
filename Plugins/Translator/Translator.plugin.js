@@ -307,6 +307,17 @@ module.exports = (_ => {
 				},
 				key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 			},
+			openai: {
+				name: "OpenAI",
+				auto: true,
+				funcName: "openaiTranslate",
+				languages: ["af","am","ar","az","ba","bg","bn","bs","ca","cs","cy","da","de","el","en","es","et","eu","fa","fi","fil","fr","fr-CA","ga","gl","gu","ha","he","hi","hr","ht","hu","hy","id","ig","is","it","ja","ka","kk","km","kn","ko","ku","ky","lo","lt","lv","mg","mi","mk","ml","mr","ms","mt","my","ne","nl","or","pa","pl","ps","pt","pt-PT","ro","ru","rw","sd","si","sk","sl","sm","sn","so","sq","st","sv","sw","ta","te","th","tk","tr","tt","ug","uk","ur","uz","vi","xh","yo","zh-CN","zh-TW","zu"],
+				parser: {
+					"zh-CN": "zh-Hans",
+					"zh-TW": "zh-Hant"
+				},
+				key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+			},
 			deepl: {
 				name: "DeepL",
 				auto: true,
@@ -794,44 +805,36 @@ module.exports = (_ => {
 				return translationEnabledStates.includes(this.settings.general.usePerChatTranslation ? channelId : "global");
 			}
 
-			setLanguages () {
-				if (this.settings.engines.translator == this.settings.engines.backup) {
-					this.settings.engines.backup = Object.keys(translationEngines).filter(n => n != this.settings.engines.translator)[0];
-					BDFDB.DataUtils.save(this.settings.engines, this, "engines");
-				}
-				let engine = translationEngines[this.settings.engines.translator] || {};
-				let backup = translationEngines[this.settings.engines.backup] || {};
-				let languageIds = [].concat(engine.languages, backup.languages).flat(10).filter(n => n);
-				languages = BDFDB.ObjectUtils.deepAssign(
-					!engine.auto && !backup.auto ? {} : {
-						auto: {
-							auto: true,
-							name: this.labels.detect_language,
-							id: "auto"
-						}
+			setLanguages() {
+				    // Hardcoding OpenAI as both the primary and backup translation engine
+				    let openAiEngine = translationEngines["openai"];
+				
+				    // Assigning OpenAI as the main engine and backup, ignoring the user settings
+				    this.settings.engines.translator = "openai";
+				    this.settings.engines.backup = "openai";
+				
+				    // Updating the language list based on OpenAI's supported languages
+				    let languageIds = openAiEngine.languages;
+				
+				    // Building the languages object
+				    languages = BDFDB.ObjectUtils.deepAssign(
+					{
+					    auto: {
+						auto: true,
+						name: this.labels.detect_language,
+						id: "auto"
+					    }
 					},
 					BDFDB.ObjectUtils.filter(BDFDB.LanguageUtils.languages, lang => languageIds.includes(lang.id)),
 					{
-						binary:	{
-							special: true,
-							name: "Binary",
-							id: "binary"
-						},
-						braille: {
-							special: true,
-							name: "Braille 6-dot",
-							id: "braille"
-						},
-						morse: {
-							special: true,
-							name: "Morse",
-							id: "morse"
-						}
+					    // If you have special cases or additional languages, include them here
 					}
-				);
-				for (let id in languages) languages[id].fav = favorites.includes(id) ? 0 : 1;
-				languages = BDFDB.ObjectUtils.sort(languages, "fav");
-			}
+				    );
+				
+				    // Sorting languages based on favorites, if applicable
+				    for (let id in languages) languages[id].fav = favorites.includes(id) ? 0 : 1;
+				    languages = BDFDB.ObjectUtils.sort(languages, "fav");
+				}
 
 			getLanguageChoice (direction, place, channelId) {
 				this.setLanguages();
@@ -1009,47 +1012,100 @@ module.exports = (_ => {
 					}
 				});
 			}
-			
-			microsoftTranslate (data, callback) {
-				BDFDB.LibraryRequires.request("https://api.cognitive.microsofttranslator.com/translate", {
-					method: "post",
-					headers: {
-						"Content-Type": "application/json",
-						"Ocp-Apim-Subscription-Key": authKeys.microsoft && authKeys.microsoft.key || "1ea861033a56423f860fd6f5ff33e308"
-					},
-					body: JSON.stringify([{"Text": data.text}]),
-					form: Object.assign({
-						"api-version": "3.0",
-						"to": data.output.id
-					}, data.input.auto ? {} : {"from": data.input.id})
-				}, (error, response, body) => {
-					if (!error && body && response.statusCode == 200) {
-						try {
-							body = JSON.parse(body)[0];
-							if (!data.specialCase && body.detectedLanguage && body.detectedLanguage.language && languages[body.detectedLanguage.language.toLowerCase()]) {
-								data.input.name = languages[body.detectedLanguage.language.toLowerCase()].name;
-								data.input.ownlang = languages[body.detectedLanguage.language.toLowerCase()].ownlang;
-							}
-							callback(body.translations.map(n => n && n.text).filter(n => n).join(""));
+		microsoftTranslate (data, callback) {
+			BDFDB.LibraryRequires.request("https://api.cognitive.microsofttranslator.com/translate", {
+				method: "post",
+				headers: {
+					"Content-Type": "application/json",
+					"Ocp-Apim-Subscription-Key": authKeys.microsoft && authKeys.microsoft.key || "1ea861033a56423f860fd6f5ff33e308"
+				},
+				body: JSON.stringify([{"Text": data.text}]),
+				form: Object.assign({
+					"api-version": "3.0",
+					"to": data.output.id
+				}, data.input.auto ? {} : {"from": data.input.id})
+			}, (error, response, body) => {
+				if (!error && body && response.statusCode == 200) {
+					try {
+						body = JSON.parse(body)[0];
+						if (!data.specialCase && body.detectedLanguage && body.detectedLanguage.language && languages[body.detectedLanguage.language.toLowerCase()]) {
+							data.input.name = languages[body.detectedLanguage.language.toLowerCase()].name;
+							data.input.ownlang = languages[body.detectedLanguage.language.toLowerCase()].ownlang;
 						}
-						catch (err) {callback("");}
+						callback(body.translations.map(n => n && n.text).filter(n => n).join(""));
 					}
-					else {
-						if (response.statusCode == 403 || response.statusCode == 429) BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_dailylimit}`, {
-							type: "danger",
-							position: "center"
-						});
-						else if (response.statusCode == 401) BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_keyoutdated}`, {
-							type: "danger",
-							position: "center"
-						});
-						else BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_serverdown}`, {
-							type: "danger",
-							position: "center"
-						});
-						callback("");
-					}
-				});
+					catch (err) {callback("");}
+				}
+				else {
+					if (response.statusCode == 403 || response.statusCode == 429) BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_dailylimit}`, {
+						type: "danger",
+						position: "center"
+					});
+					else if (response.statusCode == 401) BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_keyoutdated}`, {
+						type: "danger",
+						position: "center"
+					});
+					else BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_serverdown}`, {
+						type: "danger",
+						position: "center"
+					});
+					callback("");
+				}
+			});
+		}
+			
+			openAiTranslate(data, callback) {
+			    const requestBody = {
+			        model: "gpt-3.5-turbo",
+			        messages: [{"role": "user", "content": data.text}],
+			        temperature: 0.7
+			    };
+			
+			    const apiKey = authKeys.openai && authKeys.openai.key;
+			    if (!apiKey) {
+			        console.error("OpenAI API key is not set.");
+			        callback("");
+			        return;
+			    }
+			
+			    BDFDB.LibraryRequires.request("https://api.openai.com/v1/chat/completions", {
+			        method: "POST",
+			        headers: {
+			            "Content-Type": "application/json",
+			            "Authorization": `Bearer ${apiKey}`
+			        },
+			        body: JSON.stringify(requestBody)
+			    }, (error, response, body) => {
+			        if (!error && body && response.statusCode == 200) {
+			            try {
+			                body = JSON.parse(body);
+			                if (body.choices && body.choices.length > 0) {
+			                    const translation = body.choices[0].message.content.trim();
+			                    callback(translation);
+			                } else {
+			                    console.error("Failed to get translation from OpenAI.");
+			                    callback("");
+			                }
+			            } catch (err) {
+			                console.error("Error parsing OpenAI response:", err);
+			                callback("");
+			            }
+			        } else {
+			            if (response.statusCode == 429) BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_dailylimit}`, {
+			                type: "danger",
+			                position: "center"
+			            });
+			            else if (response.statusCode == 401 || response.statusCode == 403) BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_keyoutdated}`, {
+			                type: "danger",
+			                position: "center"
+			            });
+			            else BDFDB.NotificationUtils.toast(`${this.labels.toast_translating_failed}. ${this.labels.toast_translating_tryanother}. ${this.labels.error_serverdown}`, {
+			                type: "danger",
+			                position: "center"
+			            });
+			            callback("");
+			        }
+			    });
 			}
 			
 			deepLTranslate (data, callback) {
